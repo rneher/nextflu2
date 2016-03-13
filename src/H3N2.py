@@ -35,6 +35,45 @@ class flu_process(object):
         self.seqs.raw_seqs['A/Beijing/32/1992'].attributes['date']='1992-01-01'
         self.seqs.raw_seqs[self.outgroup].seq=tmp_outgroup.seq
         self.seqs.parse_date(["%Y-%m-%d"], prune=True)
+        self.geo_parse()
+
+    def geo_parse(self):
+        import csv,re
+        reader = csv.DictReader(open("source_data/geo_synonyms.tsv"), delimiter='\t')       # list of dicts
+        label_to_country = {}
+        for line in reader:
+            label_to_country[line['label'].lower()] = line['country']
+        for strain, v in self.seqs.raw_seqs.iteritems():
+            if "country" not in v.attributes:
+                v.attributes['country'] = 'Unknown'
+                try:
+                    label = re.match(r'^[AB]/([^/]+)/', strain).group(1).lower()                       # check first for whole geo match
+                    if label in label_to_country:
+                        v.attributes['country'] = label_to_country[label]
+                    else:
+                        label = re.match(r'^[AB]/([^\-^\/]+)[\-\/]', strain).group(1).lower()          # check for partial geo match
+                    if label in label_to_country:
+                        v.attributes['country'] = label_to_country[label]
+                    else:
+                        label = re.match(r'^[AB]/([A-Z][a-z]+)[A-Z0-9]', strain).group(1).lower()          # check for partial geo match
+                    if label in label_to_country:
+                        v.attributes['country'] = label_to_country[label]
+                    if v.attributes['country'] == 'Unknown':
+                        print "couldn't parse location for", strain
+                except:
+                    print "couldn't parse location for", strain
+
+        reader = csv.DictReader(open("source_data/geo_regions.tsv"), delimiter='\t')        # list of dicts
+        country_to_region = {}
+        for line in reader:
+            country_to_region[line['country']] = line['region']
+        for strain, v in self.seqs.raw_seqs.iteritems():
+            v.attributes['region'] = 'Unknown'
+            if v.attributes['country'] in country_to_region:
+                v.attributes['region'] = country_to_region[v.attributes['country']]
+            if v.attributes['country'] != 'Unknown' and v.attributes['region'] == 'Unknown':
+                print "couldn't parse region for", strain, "country:", v.attributes["country"]
+
 
     def subsample(self):
         self.seqs.raw_seqs = {k:s for k,s in self.seqs.raw_seqs.iteritems() if
@@ -69,11 +108,11 @@ class flu_process(object):
 
 
     def build_tree(self):
-        self.tree = tree(aln=self.seqs.aln) #, proteins = self.seqs.proteins)
+        self.tree = tree(aln=self.seqs.aln, proteins = self.proteins)
 
         self.tree.build(root='oldest')
         self.tree.ancestral()
-        self.tree.timetree(Tc=0.1)
+        self.tree.timetree(Tc=0.02)
         self.tree.add_translations()
         self.tree.refine()
         self.tree.layout()
@@ -82,15 +121,77 @@ class flu_process(object):
         def process_freqs(freq):
             return [round(x,4) for x in freq]
         self.seqs.export_diversity(prefix+'entropy.json')
-        self.tree.export(path=prefix, extra_attr = ["subtype", "country", "region", "nuc_muts", "aa_muts"])
+        self.tree.export(path=prefix, extra_attr = ["subtype", "country", "region", "nuc_muts",
+                                                    "ep", "ne", "rb", "aa_muts","lab", "accession","isolate_id"])
 
-        freq_json = {}
+        freq_json = {'pivots':process_freqs(self.pivots)}
         for gene, tmp_freqs in self.frequencies.iteritems():
             for mut, freq in tmp_freqs.iteritems():
-                freq_json['_'.join([gene, str(mut)[0], mut[1]])] = process_freqs(freq)
+                freq_json['_'.join([gene, str(mut[0]+1), mut[1]])] = process_freqs(freq)
         for clade, freq in self.tree_frequencies.iteritems():
             freq_json['clade_'+str(clade)] = process_freqs(freq)
         write_json(freq_json, prefix+'frequencies.json', indent=None)
+
+def H3N2_scores(tree, epitope_mask_version='wolf'):
+    def epitope_sites(aa):
+        return aa[epitope_mask[:len(aa)]]
+
+    def nonepitope_sites(aa):
+        return aa[~epitope_mask[:len(aa)]]
+
+    def receptor_binding_sites(aa):
+        '''
+        Receptor binding site mutations from Koel et al. 2014
+        These are (145, 155, 156, 158, 159, 189, 193) in canonical HA numbering
+        need to subtract one since python arrays start at 0
+        '''
+        sp = 16
+        rbs = map(lambda x:x+sp-1, [145, 155, 156, 158, 159, 189, 193])
+        return np.array([aa[pos] for pos in rbs])
+
+    def get_total_peptide(node):
+        '''
+        the concatenation of signal peptide, HA1, HA1
+        '''
+        return np.fromstring(node.translations['SigPep']+node.translations['HA1']
+                           + node.translations['HA2'], 'S1')
+
+    def epitope_distance(aaA, aaB):
+        """Return distance of sequences aaA and aaB by comparing epitope sites"""
+        epA = epitope_sites(aaA)
+        epB = epitope_sites(aaB)
+        distance = np.sum(epA!=epB)
+        return distance
+
+    def nonepitope_distance(aaA, aaB):
+        """Return distance of sequences aaA and aaB by comparing non-epitope sites"""
+        neA = nonepitope_sites(aaA)
+        neB = nonepitope_sites(aaB)
+        distance = np.sum(neA!=neB)
+        return distance
+
+    def receptor_binding_distance(aaA, aaB):
+        """Return distance of sequences aaA and aaB by comparing receptor binding sites"""
+        neA = receptor_binding_sites(aaA)
+        neB = receptor_binding_sites(aaB)
+        distance = np.sum(neA!=neB)
+        return distance
+
+    epitope_map = {}
+    with open('source_data/H3N2_epitope_masks.tsv') as f:
+        for line in f:
+            (key, value) = line.strip().split()
+            epitope_map[key] = value
+    if epitope_mask_version in epitope_map:
+        epitope_mask = np.fromstring(epitope_map[epitope_mask_version], 'S1')=='1'
+        print(epitope_mask)
+    root = tree.root
+    root_total_aa_seq = get_total_peptide(root)
+    for node in tree.find_clades():
+        total_aa_seq = get_total_peptide(node)
+        node.ep = epitope_distance(total_aa_seq, root_total_aa_seq)
+        node.ne = nonepitope_distance(total_aa_seq, root_total_aa_seq)
+        node.rb = receptor_binding_distance(total_aa_seq, root_total_aa_seq)
 
 
 
