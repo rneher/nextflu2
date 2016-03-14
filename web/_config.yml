@@ -1,0 +1,20 @@
+name: HIV trees
+description: interactive phylogenenies of HIV-1
+url: http://hiv.tuebingen.mpg.de
+
+markdown: redcarpet
+highlighter: pygments
+permalink: /:categories/:title/
+
+redcarpet:
+  extensions:
+   - tables
+   - no_intra_emphasis
+   - autolink
+   - superscript
+   - strikethrough
+
+exclude:
+  - "*.sh"
+  - "Gemfile"
+  - "Gemfile.lock"

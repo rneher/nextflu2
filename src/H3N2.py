@@ -79,8 +79,12 @@ class flu_process(object):
         self.seqs.raw_seqs = {k:s for k,s in self.seqs.raw_seqs.iteritems() if
                                         s.attributes['date']>=self.time_interval[0] and
                                         s.attributes['date']<self.time_interval[1]}
+        self.seqs.subsample(category = lambda x:(x.attributes['region'], x.attributes['date'].year,x.attributes['date'].month),
+                            threshold=params.viruses_per_month)
+
         self.seqs.subsample(category = lambda x:(x.attributes['date'].year,x.attributes['date'].month),
-                            threshold=params.viruses_per_year)
+                            threshold=params.viruses_per_month, repeated=True)
+
 
     def align(self):
         self.seqs.align()
@@ -112,7 +116,7 @@ class flu_process(object):
 
         self.tree.build(root='oldest')
         self.tree.ancestral()
-        self.tree.timetree(Tc=0.02)
+        self.tree.timetree(Tc=0.01)
         self.tree.add_translations()
         self.tree.refine()
         self.tree.layout()
@@ -184,7 +188,6 @@ def H3N2_scores(tree, epitope_mask_version='wolf'):
             epitope_map[key] = value
     if epitope_mask_version in epitope_map:
         epitope_mask = np.fromstring(epitope_map[epitope_mask_version], 'S1')=='1'
-        print(epitope_mask)
     root = tree.root
     root_total_aa_seq = get_total_peptide(root)
     for node in tree.find_clades():
@@ -201,7 +204,7 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser(description='Process virus sequences, build tree, and prepare of web visualization')
     parser.add_argument('-g', '--gene', type = str, default='pol', help='The HIV gene to process')
     parser.add_argument('-s', '--subtype', type = str, default='B', help='The HIV subtype to filter')
-    parser.add_argument('-v', '--viruses_per_year', type = int, default = 10, help='number of viruses sampled per month')
+    parser.add_argument('-v', '--viruses_per_month', type = int, default = 10, help='number of viruses sampled per month')
     parser.add_argument('-r', '--raxml_time_limit', type = float, default = 1.0, help='number of hours raxml is run')
 
     params = parser.parse_args()
@@ -212,4 +215,5 @@ if __name__=="__main__":
     flu.estimate_mutation_frequencies()
     flu.build_tree()
     flu.estimate_tree_frequencies()
+    H3N2_scores(flu.tree.tree)
     flu.export()

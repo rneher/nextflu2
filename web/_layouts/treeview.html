@@ -1,0 +1,113 @@
+---
+layout: default
+---
+
+<div>
+    <div class="row">
+        <div class="col-md-3">
+            <div class="bigspacer"></div>
+            <div class="title-container"><h2>Phylogeny</h2></div>
+            <div class="spacer"></div>
+            <div class="row">
+                <div class="col-xs-6 io-container">
+                    <div>
+                        <h5 id="legend-title">Legend</h5>
+                        <svg id="legend"></svg>
+                    </div>
+                    <div>
+                        <svg id="date-input"></svg>
+                    </div>
+                    <input id="treefile" type="file" name="treefile">
+                    <div class="form-group">
+                        <label class="col-xs-4 control-label"></label>
+                        <input type="checkbox" id="timetree" value="timetree"> timetree<br>
+                    </div>
+                    <div class="form-group">
+                            <label class="col-xs-4 control-label">Color by</label>
+                            <div class="col-xs-8 controls">
+                                <select id="coloring" class="form-control">
+                                    <option value="date" selected="selected">Date</option>
+                                    <option value="region">Region</option>
+                                    <option value="subtype">Subtype</option>
+                                    <option value="ep">Epitope mutations</option>
+                                    <option value="ne">Non-epitope mutations</option>
+                                    <option value="rb">RBS mutations</option>
+                                    <option value="none">---</option>
+                                </select>
+                            </div>
+                    </div>
+                    <div class="bigspacer"></div>
+                    <div class="form-group">
+                        <div class="col-xs-8 controls">
+                            <input id="gt-color" type="search" placeholder= "Position..."  class="form-control">
+                        </div>
+                    </div>
+                </form>
+                <div class="bigspacer"></div>
+                <div id="search"></div>
+                <div class="bigspacer"></div>
+                <textarea id="seqinput" class="form-control" placeholder="search sequences... (plain or fasta)"></textarea>
+                <div class="bigspacer"></div>
+                <div>
+                    <button id="searchinputclear" class="btn btn-default">clear</button>
+                    <button id="reset" class="btn btn-default">reset layout</button>
+                </div>
+                <div class="bigspacer"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-9">
+        <div class="treeplot-container">
+            <svg id="treeplot"></svg>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-3"></div>
+    <div class="col-md-9">
+        <div class="entropy-container">
+            <div id="entropy"></div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-3"></div>
+    <div class="col-md-9">
+        <div class="frequency-container">
+            <div id="frequencies"></div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3"></div>
+    <div class="col-md-9">
+        <hr>
+        <div class="center text-gray smallnote">
+            &copy; 2015 Trevor Bedford and Richard Neher
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="bigspacer"></div>
+    </div>
+</div>
+
+{{ content }}
+
+<script src="/js/ttv/third_party/d3.min.js"></script>
+<script src="/js/ttv/third_party/d3.tip.js"></script>
+<script src="/js/ttv/third_party/c3.min.js"></script>
+<script src="/js/ttv/third_party/autocomplete.js"></script>
+<script src="/js/ttv/legend.js"></script>
+<script src="/js/ttv/alignPairwise.js"></script>
+<script src="/js/ttv/locate_viruses.js"></script>
+<script src="/js/tooltips.js"></script>
+<script src="/js/ttv/date.js"></script>
+<script src="/js/ttv/tree_functions.js"></script>
+<script src="/js/ttv/tree.js"></script>
+<script src="/js/ttv/diversityChart.js"></script>
+<script src="/js/ttv/frequencyChart.js"></script>
+<script src="/js/auspice.js"></script>
