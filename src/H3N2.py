@@ -1,6 +1,6 @@
-import os, time
+import os, time, gzip
 from collections import defaultdict
-from nextstrain.io_util import make_dir, remove_dir, tree_to_json, write_json
+from nextstrain.io_util import make_dir, remove_dir, tree_to_json, write_json, myopen
 from nextstrain.sequences import sequence_set, num_date
 from nextstrain.tree import tree
 from nextstrain.frequencies import alignment_frequencies, tree_frequencies
@@ -9,12 +9,37 @@ from Bio.SeqFeature import FeatureLocation
 import numpy as np
 from datetime import datetime
 
+def fix_name(name):
+    tmp_name = name.replace(' ', '').replace('\'','').replace('(','').replace(')','').replace('H3N2','').replace('Human','').replace('human','').replace('//','/')
+    fields = tmp_name.split('/')
+    if len(fields[-1])==2:
+        try:
+            y = int(fields[-1])
+            if y>16:
+                y=1900+y
+            else:
+                y=2000+y
+            new_name =  '/'.join(fields[:-1])+'/'+str(y)
+        except:
+            new_name = tmp_name
+    else:
+        new_name = tmp_name
+    return new_name.strip().strip('_')
+
 class flu_process(object):
-    """docstring for flu_process"""
-    def __init__(self, fname = 'data/H3N2_gisaid_epiflu_sequence.fasta',
+    """process influenza virus sequences in mutliple steps to allow visualization in browser
+        * filtering and parsing of sequences
+        * alignment
+        * tree building
+        * frequency estimation of clades and mutations
+        * export as json
+    """
+
+    def __init__(self, fname = 'data/H3N2_gisaid_epiflu_sequence.fasta', data_prefix='data/',
                  outgroup_file='source_data/H3N2_outgroup.gb', **kwargs):
         super(flu_process, self).__init__()
         self.fname = fname
+        self.data_prefix = data_prefix
         self.kwargs = kwargs
         tmp_outgroup = SeqIO.read(outgroup_file, 'genbank')
         self.outgroup = tmp_outgroup.features[0].qualifiers['strain'][0]
@@ -32,10 +57,60 @@ class flu_process(object):
         self.seqs = sequence_set(self.fname, reference=self.outgroup)
         self.seqs.ungap()
         self.seqs.parse({0:'strain', 1:'isolate_id', 3:'passage', 5:'date', 7:'lab', 8:"accession"}, strip='_')
-        self.seqs.raw_seqs['A/Beijing/32/1992'].attributes['date']='1992-01-01'
+        self.fix_strain_names()
         self.seqs.raw_seqs[self.outgroup].seq=tmp_outgroup.seq
+        self.seqs.raw_seqs['A/Beijing/32/1992'].attributes['date']='1992-01-01'
+        self.seqs.reference = self.seqs.raw_seqs[self.outgroup]
         self.seqs.parse_date(["%Y-%m-%d"], prune=True)
         self.geo_parse()
+        self.filenames()
+
+
+    def filenames(self):
+        self.file_dumps = {}
+        self.file_dumps['seqs'] = self.data_prefix+'sequences.pkl.gz'
+        self.file_dumps['tree'] = self.data_prefix+'tree.newick'
+        self.file_dumps['frequencies'] = self.data_prefix+'frequencies.pkl.gz'
+        self.file_dumps['tree_frequencies'] = self.data_prefix+'tree_frequencies.pkl.gz'
+
+
+    def fix_strain_names(self):
+        new_raw_seqs = {}
+        for desc, seq in self.seqs.raw_seqs.iteritems():
+            new_name = fix_name(seq.attributes['strain'])
+            seq.attributes['strain']=new_name
+            seq.name=str(new_name)
+            seq.id=str(new_name)
+            new_raw_seqs[new_name]=seq
+        self.seqs.raw_seqs = new_raw_seqs
+
+
+    def dump(self):
+        from cPickle import dump
+        from Bio import Phylo
+        for attr_name, fname in self.file_dumps.iteritems():
+            if hasattr(self,attr_name):
+                print("dumping",attr_name)
+                if attr_name=='seqs': self.seqs.raw_seqs = None
+                with myopen(fname, 'wb') as ofile:
+                    if attr_name=='tree':
+                        Phylo.write(self.tree.tree, ofile, 'newick')
+                    else:
+                        dump(getattr(self,attr_name), ofile, -1)
+
+    def load(self):
+        from cPickle import load
+        for attr_name, fname in self.file_dumps.iteritems():
+            if os.path.isfile(fname):
+                with myopen(fname, 'r') as ifile:
+                    if attr_name=='tree':
+                        continue
+                    else:
+                        setattr(self, attr_name, load(ifile))
+        fname = self.file_dumps['tree']
+        if os.path.isfile(fname):
+            self.build_tree(fname)
+
 
     def geo_parse(self):
         import csv,re
@@ -47,7 +122,7 @@ class flu_process(object):
             if "country" not in v.attributes:
                 v.attributes['country'] = 'Unknown'
                 try:
-                    label = re.match(r'^[AB]/([^/]+)/', strain).group(1).lower()                       # check first for whole geo match
+                    label = re.match(r'^[AB]/([^/]+)/', strain.replace('_',' ')).group(1).lower()                       # check first for whole geo match
                     if label in label_to_country:
                         v.attributes['country'] = label_to_country[label]
                     else:
@@ -111,10 +186,12 @@ class flu_process(object):
         self.tree_frequencies = tree_freqs.frequencies
 
 
-    def build_tree(self):
+    def build_tree(self, infile=None):
         self.tree = tree(aln=self.seqs.aln, proteins = self.proteins)
-
-        self.tree.build(root='oldest')
+        if infile is None:
+            self.tree.build(root='oldest')
+        else:
+            self.tree.tt_from_file(infile)
         self.tree.ancestral()
         self.tree.timetree(Tc=0.01)
         self.tree.add_translations()
@@ -202,18 +279,24 @@ if __name__=="__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Process virus sequences, build tree, and prepare of web visualization')
-    parser.add_argument('-g', '--gene', type = str, default='pol', help='The HIV gene to process')
-    parser.add_argument('-s', '--subtype', type = str, default='B', help='The HIV subtype to filter')
     parser.add_argument('-v', '--viruses_per_month', type = int, default = 10, help='number of viruses sampled per month')
     parser.add_argument('-r', '--raxml_time_limit', type = float, default = 1.0, help='number of hours raxml is run')
+    parser.add_argument('--load', action='store_true', help = 'recover from file')
 
     params = parser.parse_args()
 
     flu = flu_process(method='SLSQP', dtps=2.0, stiffness=20, inertia=0.9)
-    flu.subsample()
-    flu.align()
-    flu.estimate_mutation_frequencies()
-    flu.build_tree()
-    flu.estimate_tree_frequencies()
-    H3N2_scores(flu.tree.tree)
-    flu.export()
+    if params.load:
+        flu.load()
+    else:
+        flu.subsample()
+        flu.align()
+        flu.dump()
+        flu.estimate_mutation_frequencies()
+        flu.dump()
+        flu.build_tree()
+        flu.dump()
+        flu.estimate_tree_frequencies()
+
+        H3N2_scores(flu.tree.tree)
+        flu.export()
