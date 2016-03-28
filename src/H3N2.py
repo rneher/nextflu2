@@ -1,3 +1,4 @@
+from __future__ import division, print_function
 import os, time, gzip
 from collections import defaultdict
 from nextstrain.io_util import make_dir, remove_dir, tree_to_json, write_json, myopen
@@ -10,8 +11,11 @@ import numpy as np
 from datetime import datetime
 
 def fix_name(name):
-    tmp_name = name.replace(' ', '').replace('\'','').replace('(','').replace(')','').replace('H3N2','').replace('Human','').replace('human','').replace('//','/')
+    tmp_name = name.replace('_', '').replace(' ', '').replace('\'','')\
+                   .replace('(','').replace(')','').replace('H3N2','')\
+                   .replace('Human','').replace('human','').replace('//','/')
     fields = tmp_name.split('/')
+    # fix two digit dates
     if len(fields[-1])==2:
         try:
             y = int(fields[-1])
@@ -35,12 +39,17 @@ class flu_process(object):
         * export as json
     """
 
-    def __init__(self, fname = 'data/H3N2_gisaid_epiflu_sequence.fasta', data_prefix='data/',
-                 outgroup_file='source_data/H3N2_outgroup.gb', **kwargs):
+    def __init__(self, fname = 'data/H3N2_gisaid_epiflu_sequence.fasta',
+                 out_specs={'data_dir':'data/', 'prefix':'H3N2_', 'qualifier':''},
+                 **kwargs):
         super(flu_process, self).__init__()
         self.fname = fname
-        self.data_prefix = data_prefix
         self.kwargs = kwargs
+        self.out_specs = out_specs
+        if 'outgroup' in kwargs:
+            outgroup_file = kwargs['outgroup']
+        else:
+            outgroup_file = 'source_data/'+out_specs['prefix']+'outgroup.gb'
         tmp_outgroup = SeqIO.read(outgroup_file, 'genbank')
         self.outgroup = tmp_outgroup.features[0].qualifiers['strain'][0]
         genome_annotation = tmp_outgroup.features
@@ -67,11 +76,15 @@ class flu_process(object):
 
 
     def filenames(self):
+        data_path = self.out_specs['data_dir']+self.out_specs['prefix']
+        self.HI_strains_fname = data_path+'HI_strains.txt'
+        self.HI_titer_fname = data_path+'HI_titers.txt'
+        data_path += self.out_specs['qualifier']
         self.file_dumps = {}
-        self.file_dumps['seqs'] = self.data_prefix+'sequences.pkl.gz'
-        self.file_dumps['tree'] = self.data_prefix+'tree.newick'
-        self.file_dumps['frequencies'] = self.data_prefix+'frequencies.pkl.gz'
-        self.file_dumps['tree_frequencies'] = self.data_prefix+'tree_frequencies.pkl.gz'
+        self.file_dumps['seqs'] = data_path+'sequences.pkl.gz'
+        self.file_dumps['tree'] = data_path+'tree.newick'
+        self.file_dumps['frequencies'] = data_path+'frequencies.pkl.gz'
+        self.file_dumps['tree_frequencies'] = data_path+'tree_frequencies.pkl.gz'
 
 
     def fix_strain_names(self):
@@ -122,21 +135,22 @@ class flu_process(object):
             if "country" not in v.attributes:
                 v.attributes['country'] = 'Unknown'
                 try:
-                    label = re.match(r'^[AB]/([^/]+)/', strain.replace('_',' ')).group(1).lower()                       # check first for whole geo match
+                    fixed_strain = strain.replace('_',' ')
+                    label = re.match(r'^[AB]/([^/]+)/', fixed_strain).group(1).lower()                       # check first for whole geo match
                     if label in label_to_country:
                         v.attributes['country'] = label_to_country[label]
                     else:
-                        label = re.match(r'^[AB]/([^\-^\/]+)[\-\/]', strain).group(1).lower()          # check for partial geo match
+                        label = re.match(r'^[AB]/([^\-^\/]+)[\-\/]', fixed_strain).group(1).lower()          # check for partial geo match
                     if label in label_to_country:
                         v.attributes['country'] = label_to_country[label]
                     else:
-                        label = re.match(r'^[AB]/([A-Z][a-z]+)[A-Z0-9]', strain).group(1).lower()          # check for partial geo match
+                        label = re.match(r'^[AB]/([A-Z][a-z]+)[A-Z0-9]', fixed_strain).group(1).lower()          # check for partial geo match
                     if label in label_to_country:
                         v.attributes['country'] = label_to_country[label]
                     if v.attributes['country'] == 'Unknown':
-                        print "couldn't parse location for", strain
+                        print("couldn't parse location for", fixed_strain)
                 except:
-                    print "couldn't parse location for", strain
+                    print("couldn't parse location for", fixed_strain, label)
 
         reader = csv.DictReader(open("source_data/geo_regions.tsv"), delimiter='\t')        # list of dicts
         country_to_region = {}
@@ -147,18 +161,37 @@ class flu_process(object):
             if v.attributes['country'] in country_to_region:
                 v.attributes['region'] = country_to_region[v.attributes['country']]
             if v.attributes['country'] != 'Unknown' and v.attributes['region'] == 'Unknown':
-                print "couldn't parse region for", strain, "country:", v.attributes["country"]
+                print("couldn't parse region for", strain, "country:", v.attributes["country"])
 
 
     def subsample(self):
+        HI_titer_count = {}
+        with myopen(self.HI_strains_fname,'r') as ifile:
+            for line in ifile:
+                strain, count = line.strip().split()
+                HI_titer_count[strain]=int(count)
+
+        def sampling_priority(seq):
+            sname = seq.attributes['strain'].upper()
+            if sname in HI_titer_count:
+                pr = HI_titer_count[sname]
+            else:
+                pr = 0
+            return pr + len(seq.seq)*0.0001 - 0.01*np.sum([seq.seq.count(nuc) for nuc in 'NRWYMKSHBVD'])
+
         self.seqs.raw_seqs = {k:s for k,s in self.seqs.raw_seqs.iteritems() if
                                         s.attributes['date']>=self.time_interval[0] and
                                         s.attributes['date']<self.time_interval[1]}
-        self.seqs.subsample(category = lambda x:(x.attributes['region'], x.attributes['date'].year,x.attributes['date'].month),
-                            threshold=params.viruses_per_month)
-
-        self.seqs.subsample(category = lambda x:(x.attributes['date'].year,x.attributes['date'].month),
-                            threshold=params.viruses_per_month, repeated=True)
+        self.seqs.subsample(category = lambda x:(x.attributes['region'],
+                                                 x.attributes['date'].year,
+                                                 x.attributes['date'].month),
+                            threshold=params.viruses_per_month, priority=sampling_priority )
+        #tmp = []
+        #for seq in self.seqs.seqs.values():
+        #    tmp.append((seq.name, sampling_priority(seq), seq.attributes['region'], seq.attributes['date']))
+        #print(sorted(tmp, key=lambda x:x[1]))
+        #self.seqs.subsample(category = lambda x:(x.attributes['date'].year,x.attributes['date'].month),
+        #                    threshold=params.viruses_per_month, repeated=True)
 
 
     def align(self):
@@ -168,6 +201,9 @@ class flu_process(object):
         self.seqs.translate(proteins=self.proteins)
 
     def estimate_mutation_frequencies(self):
+        if not hasattr(self.seqs, 'aln'):
+            print("Align sequences first")
+            return
         time_points = [x.attributes['num_date'] for x in self.seqs.aln]
         aln_frequencies = alignment_frequencies(self.seqs.aln, time_points,
                                 self.pivots, ws=len(time_points)/10, **self.kwargs)
@@ -198,6 +234,7 @@ class flu_process(object):
         self.tree.refine()
         self.tree.layout()
 
+
     def export(self, prefix='web/data/'):
         def process_freqs(freq):
             return [round(x,4) for x in freq]
@@ -212,6 +249,14 @@ class flu_process(object):
         for clade, freq in self.tree_frequencies.iteritems():
             freq_json['clade_'+str(clade)] = process_freqs(freq)
         write_json(freq_json, prefix+'frequencies.json', indent=None)
+
+
+    def HI_model(self):
+        from HI_model import HI_tree
+        self.HI = HI_tree(self.tree.tree, HI_fname = self.HI_titer_fname)
+        self.HI.map_HI(training_fraction=1.0,method='nnl1reg', map_to_tree=True)
+        self.HI.add_titers()
+
 
 def H3N2_scores(tree, epitope_mask_version='wolf'):
     def epitope_sites(aa):
