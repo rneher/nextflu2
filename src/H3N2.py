@@ -228,8 +228,7 @@ class flu_process(object):
             self.tree.build(root='oldest')
         else:
             self.tree.tt_from_file(infile)
-        self.tree.ancestral()
-        self.tree.timetree(Tc=0.01)
+        self.tree.timetree(Tc=0.01, infer_gtr=True)
         self.tree.add_translations()
         self.tree.refine()
         self.tree.layout()
