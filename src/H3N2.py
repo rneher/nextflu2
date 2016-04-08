@@ -225,7 +225,7 @@ class flu_process(object):
     def build_tree(self, infile=None):
         self.tree = tree(aln=self.seqs.aln, proteins = self.proteins)
         if infile is None:
-            self.tree.build(root='oldest')
+            self.tree.build()
         else:
             self.tree.tt_from_file(infile)
         self.tree.timetree(Tc=0.01, infer_gtr=True)
