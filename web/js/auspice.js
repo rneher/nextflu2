@@ -53,6 +53,41 @@ function load_tree(){
         console.log(legend_element);
     }
 
+    function updateColor(){
+        var choice = document.getElementById("coloring").value;
+        if (choice=="date"||choice=="ep"||choice=="ne"||choice=="rb"){
+            if (choice=="date") {myTree.nodes.forEach(function (d){d.coloring = d._numDate;});}
+            else {myTree.nodes.forEach(function (d){d.coloring = d[choice];});}
+            var activeTips = myTree.tips.filter(function (d){return d.current;});
+            var activeVals = activeTips.map(function(d){return (choice=="date")?d._numDate:d[choice];});
+            console.log(activeVals);
+            d3.select("#legend-title").html(function(d){return "Collection date";});
+            var label_fmt = function(d) {return d.toFixed(2).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/,/g, ', ');}
+            var leg_colorScale = myTree.currentColorScale;
+            var curr_min = d3.min(activeVals);
+            var curr_max = d3.max(activeVals);
+            leg_colorScale.domain(myTree.zero_one.map(function (d){return curr_min + d*(curr_max-curr_min);}));
+        }else{
+            myTree.nodes.forEach(function (d){d.coloring = d[choice];});
+            var cats = [];
+            myTree.nodes.forEach(function (d){cats.push(d[choice]);});
+            var tmp_categories = d3.set(cats).values();
+            d3.select("#legend-title").html(function(d){return (choice=="region")?"Region":"Country";});
+            var label_fmt = function(d) {return d;}
+            var colorScale = d3.scale.ordinal()
+                .domain(tmp_categories)
+                .range(genotypeColors);
+            var leg_colorScale=colorScale;
+        }
+
+        myTree.updateStyle(leg_colorScale, branchColor="same");
+        if (typeof myLegend != "undefined"){
+            myLegend.remove();
+        }
+        myLegend = new legend(legendCanvas, leg_colorScale, label_fmt,
+                                legend_mouseover, legend_mouseout, legend_click);
+    }
+
     d3.json(file_prefix + "tree.json", function (error, root){
         if (error) return console.warn(error);
 
@@ -99,7 +134,7 @@ function load_tree(){
 
         function draggedEndFunc(start, end){
             myTree.setNodeState(start, end);
-            myTree.updateStyle();
+            updateColor();
             myTree.updateAnnotations();
         }
 
@@ -130,29 +165,8 @@ function load_tree(){
                                         cladeToSeq['root']['nuc'], seqSearchResult);
     });
 
-    d3.select("#coloring").on("change", function(){
-        var choice = document.getElementById("coloring").value;
-        if (choice=="date"||choice=="ep"||choice=="ne"||choice=="rb"){
-            if (choice=="date") {myTree.nodes.forEach(function (d){d.coloring = d._numDate;});}
-            else {myTree.nodes.forEach(function (d){d.coloring = d[choice];});}
-            d3.select("#legend-title").html(function(d){return "Collection date";});
-            var label_fmt = function(d) {return d.toFixed(2).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/,/g, ', ');}
-            var leg_colorScale = myTree.currentColorScale;
-        }else if (choice=="region"){
-            myTree.nodes.forEach(function (d){d.coloring = d.region;});
-            d3.select("#legend-title").html(function(d){return "Region";});
-            var label_fmt = function(d) {return d;}
-            var colorScale = d3.scale.ordinal()
-                .domain(regions)
-                .range(genotypeColors);
-            var leg_colorScale=colorScale;
-        }
 
-        myTree.updateStyle(colorScale);
-        myLegend.remove();
-        myLegend =  new legend(legendCanvas, leg_colorScale, label_fmt,
-                                legend_mouseover, legend_mouseout, legend_click);
-    });
+    d3.select("#coloring").on("change", updateColor);
 
     var genotypeColoringEvent;
     d3.select("#gt-color")

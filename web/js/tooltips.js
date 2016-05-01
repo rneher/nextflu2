@@ -90,7 +90,7 @@ var linkTooltip = d3.tip()
 				}
 			}
 		}
-		else if ((typeof d.nuc_muts !="undefined")&&(mutType=='nuc')&&(d.nuc_muts.length)){
+		if ((typeof d.nuc_muts !="undefined")&&(d.nuc_muts.length)){
 			var tmp_muts = d.muts.split(',');
 			var nmuts = tmp_muts.length;
 			tmp_muts = tmp_muts.slice(0,Math.min(10, nmuts))
