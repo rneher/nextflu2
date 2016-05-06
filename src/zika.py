@@ -1,5 +1,7 @@
 from __future__ import division, print_function
 import os, time, gzip
+import sys
+sys.path.insert(0,'/home/richard/Projects/treetime_repo')
 from collections import defaultdict
 from nextstrain.io_util import make_dir, remove_dir, tree_to_json, write_json, myopen
 from nextstrain.sequences import sequence_set, num_date
@@ -136,7 +138,7 @@ class zika_process(object):
             self.tree.build()
         else:
             self.tree.tt_from_file(infile)
-        self.tree.timetree(Tc=0.005, infer_gtr=True)
+        self.tree.timetree(Tc=0.5, infer_gtr=True, n_iqd=3)
         for node in self.tree.tt.tree.get_terminals():
             if hasattr(node, "bad_branch") and node.bad_branch:
                 node.numdate = min(2016.15, node.numdate)
