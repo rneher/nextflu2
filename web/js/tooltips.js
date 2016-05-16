@@ -80,18 +80,18 @@ var linkTooltip = d3.tip()
 		}
 		string += "<div class=\"smallspacer\"></div>";
 		string += "<div class=\"smallnote\">";
-		if ((typeof d.aa_muts !="undefined")&&(mutType=='aa')){
+		if ((typeof d.aa_mut_str !="undefined")&&(mutType=='aa')){
 			var ncount = 0;
-			for (tmp_gene in d.aa_muts) {ncount+=d.aa_muts[tmp_gene].length;}
+			for (tmp_gene in d.aa_mut_str) {ncount+=d.aa_mut_str[tmp_gene].length;}
 			if (ncount) {string += "<b>Mutations:</b><ul>";}
-			for (tmp_gene in d.aa_muts){
-				if (d.aa_muts[tmp_gene].length){
-					string+="<li>"+tmp_gene+":</b> "+d.aa_muts[tmp_gene].replace(/,/g, ', ') + "</li>";
+			for (tmp_gene in d.aa_mut_str){
+				if (d.aa_mut_str[tmp_gene].length){
+					string+="<li>"+tmp_gene+":</b> "+d.aa_mut_str[tmp_gene].replace(/,/g, ', ') + "</li>";
 				}
 			}
 		}
-		if ((typeof d.nuc_muts !="undefined")&&(d.nuc_muts.length)){
-			var tmp_muts = d.muts.split(',');
+		if ((typeof d.mut_str !="undefined")&&(d.mut_str.length)){
+			var tmp_muts = d.mut_str.split(',');
 			var nmuts = tmp_muts.length;
 			tmp_muts = tmp_muts.slice(0,Math.min(10, nmuts))
 			string += "<li>"+tmp_muts.join(', ');
