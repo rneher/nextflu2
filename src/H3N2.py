@@ -1,10 +1,10 @@
 from __future__ import division, print_function
 import os, time, gzip
 from collections import defaultdict
-from nextstrain.io_util import make_dir, remove_dir, tree_to_json, write_json, myopen
-from nextstrain.sequences import sequence_set, num_date
-from nextstrain.tree import tree
-from nextstrain.frequencies import alignment_frequencies, tree_frequencies
+from nextstrain_old.io_util import make_dir, remove_dir, tree_to_json, write_json, myopen
+from nextstrain_old.sequences import sequence_set, num_date
+from nextstrain_old.tree import tree
+from nextstrain_old.frequencies import alignment_frequencies, tree_frequencies
 from Bio import SeqIO
 from Bio.SeqFeature import FeatureLocation
 import numpy as np
@@ -182,7 +182,7 @@ class flu_process(object):
         self.seqs.raw_seqs = {k:s for k,s in self.seqs.raw_seqs.iteritems() if
                                         s.attributes['date']>=self.time_interval[0] and
                                         s.attributes['date']<self.time_interval[1]}
-        self.seqs.subsample(category = lambda x:(x.attributes['region'],
+        self.seqs.subsample(category = lambda x:(
                                                  x.attributes['date'].year,
                                                  x.attributes['date'].month),
                             threshold=params.viruses_per_month, priority=sampling_priority )
