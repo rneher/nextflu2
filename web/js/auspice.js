@@ -22,6 +22,7 @@ treeplot.right_margin = 10;
 var regions = ["Africa", "SouthAmerica", "WestAsia", "Oceania", "Europe", "JapanKorea",
                "NorthAmerica", "SoutheastAsia", "SouthAsia", "China"]
 
+
 function load_tree(){
     var myTree;
     var myTreeSearch;
@@ -294,7 +295,6 @@ function load_tree(){
         myFreqChart.addTrajectories(['HA1_159_Y','HA1_159_F', 'HA1_159_S'], genotypeColors);
     });
 
-    updateColor();
 }
 
 auspice_tree = load_tree();
