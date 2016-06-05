@@ -1,7 +1,7 @@
 var virusTooltip = d3.tip()
-	.direction('e')
+	.direction(function(d){return (d.x<600)?'e':'w';})
 	.attr('class', 'd3-tip')
-	.offset([0, 12])
+	.offset(function (d){ return (d.x<600)?[0,12]:[0,-12];})
 	.html(function(d) {
 
 		string = "";
@@ -70,9 +70,9 @@ var virusTooltip = d3.tip()
 
 
 var linkTooltip = d3.tip()
-	.direction('e')
+	.direction(function(d){return (d.x<600)?'e':'w';})
 	.attr('class', 'd3-tip')
-	.offset([0, 12])
+	.offset(function (d){ return (d.x<600)?[0,12]:[0,-12];})
 	.html(function(d) {
 		string = ""
 		if (typeof d.frequency != "undefined") {

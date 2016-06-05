@@ -9,7 +9,7 @@ var treeplot = d3.select("#treeplot")
 
 var legendCanvas = d3.select("#legend")
     .attr("width", 280)
-    .attr("height", 100);
+    .attr("height", 140);
 
 var mutType='aa'; //mutations displayed in tooltip
 
@@ -31,26 +31,34 @@ function load_tree(){
     var myFreqChart;
     var oneYear = 365.25*24*60*60*1000; // days*hours*minutes*seconds*milliseconds
     var tw = 10.0;
-
+    var colorScale;
 
     function legend_mouseover(legend_element){
         var lb = myLegend.lowerBound[legend_element];
         var ub = myLegend.upperBound[legend_element];
         if (typeof lb == "number"){
-            myTree.tips.forEach(function (d){d.highlight = (lb<=d.coloring && ub>d.coloring);});
+            myTree.tips.forEach(function (d){d._highlight = (lb<=d.coloring && ub>d.coloring);});
         }else{
-            myTree.tips.forEach(function (d){d.highlight = legend_element==d.coloring;});
+            myTree.tips.forEach(function (d){d._highlight = legend_element==d.coloring;});
         }
-        myTree.updateStyle();
+        myTree.updateStyle(colorScale, branchColor="same");
         console.log("Mousover, updated radius " + legend_element +" "+ lb+" "+ub);
     }
     function legend_mouseout(){
-        myTree.tips.forEach(function (d){d.highlight = false;});
-        myTree.updateStyle();
+        myTree.tips.forEach(function (d){d._highlight = false;});
+        myTree.updateStyle(colorScale, branchColor="same");
     };
 
     function legend_click(legend_element){
-        console.log(legend_element);
+        var lb = myLegend.lowerBound[legend_element];
+        var ub = myLegend.upperBound[legend_element];
+        if (typeof lb == "number"){
+            myTree.tips.forEach(function (d){d._selected = d._selected||(lb<=d.coloring && ub>d.coloring);});
+        }else{
+            myTree.tips.forEach(function (d){d._selected = d._selected||(legend_element==d.coloring);});
+        }
+        myTree.updateStyle(colorScale, branchColor="same");
+        console.log("Click, updated style " + legend_element +" "+ lb+" "+ub);
     }
 
     function updateColor(){
@@ -63,10 +71,10 @@ function load_tree(){
             console.log(activeVals);
             d3.select("#legend-title").html(function(d){return "Collection date";});
             var label_fmt = function(d) {return d.toFixed(2).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/,/g, ', ');}
-            var leg_colorScale = myTree.currentColorScale;
+            colorScale = myTree.currentColorScale;
             var curr_min = d3.min(activeVals);
             var curr_max = d3.max(activeVals);
-            leg_colorScale.domain(myTree.zero_one.map(function (d){return curr_min + d*(curr_max-curr_min);}));
+            colorScale.domain(myTree.zero_one.map(function (d){return curr_min + d*(curr_max-curr_min);}));
         }else{
             myTree.nodes.forEach(function (d){d.coloring = d[choice];});
             var cats = [];
@@ -77,15 +85,17 @@ function load_tree(){
             var colorScale = d3.scale.ordinal()
                 .domain(tmp_categories)
                 .range(genotypeColors);
-            var leg_colorScale=colorScale;
         }
 
-        myTree.updateStyle(leg_colorScale, branchColor="same");
+        myTree.updateStyle(colorScale, branchColor="same");
         if (typeof myLegend != "undefined"){
             myLegend.remove();
         }
-        myLegend = new legend(legendCanvas, leg_colorScale, label_fmt,
-                                legend_mouseover, legend_mouseout, legend_click);
+        var legend_stack_height = d3.max([10,colorScale.domain().length])/2;
+        legendCanvas.attr('height',20*(legend_stack_height+1));
+        myLegend = new legend(legendCanvas, colorScale, label_fmt,
+                              legend_mouseover, legend_mouseout, legend_click,
+                              legend_stack_height);
     }
 
     d3.json(file_prefix + "tree.json", function (error, root){
@@ -116,14 +126,13 @@ function load_tree(){
                 .call(function(d) {
                     virusTooltip.show(tip, d[0][0]);
                 })
-                .attr("r", function(d){return tipRadius*1.7;})
                 .style("fill", function (d) {
+                  d._selected = true;
                   searchEvent = setTimeout(function (){
-                    d3.select("#"+strainName)
-                     .attr("r", function(d){return tipRadius;})
-                     .style("fill", tipFillColor);}, 5000, d);
+                  virusTooltip.hide(d);}, 5000, d);
                   return d3.rgb(tipFillColor(d)).brighter();
                 });
+            myTree.updateStyle(colorScale, branchColor="same");
         }
 
 
@@ -199,7 +208,7 @@ function load_tree(){
         for (var ii=0; ii<tmp_categories.length; ii++)
             {tmp_range.push(genotypeColors[ii%genotypeColors.length]);
              tmp_freqs.push(gene+'_'+(pos+1)+'_'+tmp_categories[ii]);}
-        var colorScale = d3.scale.ordinal()
+        colorScale = d3.scale.ordinal()
             .domain(tmp_categories)
             .range(tmp_range);
         myTree.updateStyle(colorScale, branchColor="same");
@@ -212,6 +221,8 @@ function load_tree(){
         console.log(tmp_range);
         myFreqChart.addTrajectories(tmp_freqs, tmp_range);
     }
+    this.colByPos = colorByPosition;
+
     // callback to highlight the result of a search by strain name
     var searchEvent;
     function highlightStrainSearch(tip) {
@@ -251,14 +262,16 @@ function load_tree(){
             .text(function(d) {return '\uf069'; })
             .on('mouseover', function(d) {virusTooltip.show(d, this);})
             .on('mouseout', virusTooltip.hide);
-        myTree.updateStyle();
+        myTree.updateStyle(colorScale, branchColor="same");
         myTree.updateGeometry(0.0);
     }
 
     d3.select('#searchinputclear').on('click', function (){
-    treeplot.selectAll('.searchResult').data([]).exit().remove();
-    document.getElementById('seqinput').value = "";
-    virusTooltip.hide();
+        myTree.tips.forEach(function(d) {d._selected=false;});
+        //treeplot.selectAll('.searchResult').data([]).exit().remove();
+        document.getElementById('seqinput').value = "";
+        virusTooltip.hide();
+        myTree.updateStyle(colorScale, branchColor='same');
     });
 
     function diversityCallback(d){
@@ -281,7 +294,8 @@ function load_tree(){
         myFreqChart.addTrajectories(['HA1_159_Y','HA1_159_F', 'HA1_159_S'], genotypeColors);
     });
 
+    updateColor();
 }
 
-load_tree();
+auspice_tree = load_tree();
 

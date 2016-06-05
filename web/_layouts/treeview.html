@@ -29,11 +29,13 @@ layout: default
                                     <option value="date" selected="selected">Date</option>
                                     <option value="region">Region</option>
                                     <option value="country">Country</option>
+                                    {% if page.virus!="Zika"%}
                                     <option value="subtype">Subtype</option>
                                     <option value="ep">Epitope mutations</option>
                                     <option value="ne">Non-epitope mutations</option>
                                     <option value="rb">RBS mutations</option>
                                     <option value="none">---</option>
+                                    {% endif %}
                                 </select>
                             </div>
                     </div>
@@ -79,6 +81,16 @@ layout: default
         </div>
     </div>
 </div>
+<div class="row">
+    <div class="col-md-12">
+    <div class="bigspacer"></div>
+    <!--<h4>FluSurver Link</h4>
+    <div id="FluSurverLink"><div id="FluSurverContent">select column in alignment</div></div>
+    <div class="bigspacer"></div>!-->
+    <h4>Nucleotide sequence alignment</h4>
+    <div id="aln"></div>
+    </div>
+</div>
 
 <div class="row">
     <div class="col-md-3"></div>
@@ -112,3 +124,30 @@ layout: default
 <script src="/js/ttv/diversityChart.js"></script>
 <script src="/js/ttv/frequencyChart.js"></script>
 <script src="/js/auspice.js"></script>
+
+{% if page.virus == 'Zika' %}
+<script src="/js/msa.min.js"></script>
+<script>
+console.log('loading alignment');
+var rootDiv = document.getElementById('aln');
+/* global rootDiv */
+var msa = require("msa");
+var opts = {
+  el: rootDiv,
+  importURL: "/data/zika_aln.fasta",
+  bootstrapMenu: true, // simplified behavior to add the menu bar, you can also create your own menu instance
+  //vis: {seqlogo: true},
+  colorscheme: {"scheme": "nucleotide"},
+  zoomer: {
+    labelNameLength: 200,
+  },
+};
+var m = new msa(opts);
+m.g.on('all',function(name,data){var obj = {name: name, data: data};if(inIframe()){ parent.postMessage(obj, "*") }});
+m.g.on("column:click", function(data){
+        colorBy = "genotype";auspice_tree.colByPos([data['rowPos']],'nuc');});
+m.g.on("residue:click", function(data){console.log(data);});
+function inIframe(){try{return window.self!==window.top}catch(e){return true}}
+</script>
+
+{% endif %}
