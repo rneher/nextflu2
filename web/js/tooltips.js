@@ -99,6 +99,9 @@ var linkTooltip = d3.tip()
 			string += "</li>";
 		}
 		string += "</ul>";
+		if (typeof d.region != "undefined") {
+			string += "Region: "+d.region.replace(/([A-Z])/g, ' $1') + "<br>";
+		}
 		string += "click to zoom into clade"
 		string += "</div>";
 		return string;
