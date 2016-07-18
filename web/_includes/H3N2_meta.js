@@ -1,4 +1,5 @@
 var	vaccineChoice = {};
+//file_prefix+='noregion_'
 vaccineChoice['A/Sydney/5/1997'] = "1997-09-25";
 vaccineChoice['A/Moscow/10/1999'] = "1999-09-25";
 vaccineChoice['A/Fujian/411/2002'] = "2003-09-25";

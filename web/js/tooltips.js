@@ -42,8 +42,8 @@ var virusTooltip = d3.tip()
 		string += "<div class=\"smallspacer\"></div>";
 		// following may or may not be present
 		string += "<div class=\"smallnote\">";
-		if (typeof d.cHI != "undefined") {
-			string += "Antigenic adv: " + d.cHI.toFixed(1) + "<br>";
+		if (typeof d.cTiter != "undefined") {
+			string += "Antigenic adv: " + d.cTiter.toFixed(1) + "<br>";
 		}
 		if (typeof d.ep != "undefined") {
 			string += "Epitope distance: " + d.ep + "<br>";
@@ -101,6 +101,12 @@ var linkTooltip = d3.tip()
 		string += "</ul>";
 		if (typeof d.region != "undefined") {
 			string += "Region: "+d.region.replace(/([A-Z])/g, ' $1') + "<br>";
+		}
+		if (typeof d.dTiter != "undefined") {
+			string += "Titer drop: "+d.dTiter.toFixed(1) + "<br>";
+		}
+		if (typeof d.cTiter != "undefined") {
+			string += "cum. titer: "+d.cTiter.toFixed(1) + "<br>";
 		}
 		string += "click to zoom into clade"
 		string += "</div>";

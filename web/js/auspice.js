@@ -21,7 +21,7 @@ treeplot.right_margin = 10;
 
 var regions = ["Africa", "SouthAmerica", "WestAsia", "Oceania", "Europe", "JapanKorea",
                "NorthAmerica", "SoutheastAsia", "SouthAsia", "China"]
-
+var LBItau=0.0005;
 
 function load_tree(){
     var myTree;
@@ -64,7 +64,11 @@ function load_tree(){
 
     function updateColor(){
         var choice = document.getElementById("coloring").value;
-        if (choice=="date"||choice=="ep"||choice=="ne"||choice=="rb"){
+        console.log("coloring by", choice);
+        if (choice=="date"||choice=="ep"||choice=="ne"||choice=="rb"||choice=="cTiter"||choice=="LBI"){
+            if (choice=="LBI")
+                {calcLBI(myTree.rootNode, myTree.nodes);}
+            
             if (choice=="date") {myTree.nodes.forEach(function (d){d.coloring = d._numDate;});}
             else {myTree.nodes.forEach(function (d){d.coloring = d[choice];});}
             var activeTips = myTree.tips.filter(function (d){return d.current;});
