@@ -13,6 +13,25 @@ var legendCanvas = d3.select("#legend")
 
 var mutType='aa'; //mutations displayed in tooltip
 
+var serumSymbol = 'X'; //'\uf0fe';
+var focusSymbol = 'O'; //'\uf05b'
+var focusNode;
+var decorations=true;
+
+function tipDecoration(d) {
+    if (typeof(d.serum) === 'undefined'){
+        return '';
+    }else if (d.serum){
+        if (d==focusNode) 
+            {return focusSymbol;} 
+        else 
+            {return serumSymbol;}
+    }else{
+        return '';
+    }
+}
+
+
 treeplot.left_margin = 10;
 treeplot.bottom_margin = 16;
 treeplot.top_margin = 32;
@@ -33,6 +52,42 @@ function load_tree(){
     var oneYear = 365.25*24*60*60*1000; // days*hours*minutes*seconds*milliseconds
     var tw = 10.0;
     var colorScale;
+
+    function addTipDecorations(){
+        console.log('adding tip decorations');
+        treeplot.selectAll(".tipDeco")
+            .data(myTree.nodes.filter(function(d) {return d.serum;}))
+            .enter()
+            .append("text")
+            .style('font-family', 'FontAwesome')
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'central')
+            .attr("class","tipDeco")
+            .style("cursor", "pointer")
+            .text(tipDecoration)
+            .style("font-size", function (d) {if (d==focusNode) {return "30px";} else {return "12px";}})
+            .on('click', changeTiterFocus)
+            .on('mouseover', function(d) {
+                virusTooltip.show(d, this);
+            })
+            .on('mouseout', virusTooltip.hide);
+        myTree.updateGeometry();
+    }
+
+    function updateTipDecoration(){
+        console.log('updating tip decorations');
+        treeplot.selectAll(".tipDeco")
+            .text(tipDecoration)
+            .style("font-size", function (d) {console.log(d.serum); if (d==focusNode) {return "30px";} else {return "12px";}});
+    }
+
+    function changeTiterFocus(d) {
+        focusNode=d;
+        updateTipDecoration();
+        assignRawTiter(myTree.tips, focusNode);
+        colorByTiter();
+    }
+
 
     function legend_mouseover(legend_element){
         var lb = myLegend.lowerBound[legend_element];
@@ -62,9 +117,33 @@ function load_tree(){
         console.log("Click, updated style " + legend_element +" "+ lb+" "+ub);
     }
 
+    function colorByTiter(){
+        myTree.nodes.forEach(function (d){d.coloring = d.HI_dist; d._valid=(d.HI_dist!='NaN');});
+        var activeTips = myTree.tips.filter(function (d){return d.current;});
+        var activeVals = activeTips.map(function(d){return (d.HI_dist=='NaN')?0:d.HI_dist;});
+        d3.select("#legend-title").html(function(d){return "HI titers";});
+        colorScale = myTree.currentColorScale;
+        var curr_min = d3.min(activeVals);
+        var curr_max = d3.max(activeVals);
+        colorScale.domain(myTree.zero_one.map(function (d){return curr_min + d*(curr_max-curr_min);}));
+
+        myTree.updateStyle(colorScale, branchColor="same");
+        if (typeof myLegend != "undefined"){
+            myLegend.remove();
+        }
+        var legend_stack_height = d3.max([10,colorScale.domain().length])/2;
+        legendCanvas.attr('height',20*(legend_stack_height+1));
+        var label_fmt = function(d) {return d.toFixed(2).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/,/g, ', ');}
+        myLegend = new legend(legendCanvas, colorScale, label_fmt,
+                              legend_mouseover, legend_mouseout, legend_click,
+                              legend_stack_height);
+    }
+
+
     function updateColor(){
         var choice = document.getElementById("coloring").value;
         console.log("coloring by", choice);
+        myTree.nodes.forEach(function (d){d._valid=true;});
         if (choice=="date"||choice=="ep"||choice=="ne"||choice=="rb"||choice=="cTiter"||choice=="LBI"){
             if (choice=="LBI")
                 {calcLBI(myTree.rootNode, myTree.nodes);}
@@ -73,7 +152,7 @@ function load_tree(){
             else {myTree.nodes.forEach(function (d){d.coloring = d[choice];});}
             var activeTips = myTree.tips.filter(function (d){return d.current;});
             var activeVals = activeTips.map(function(d){return (choice=="date")?d._numDate:d[choice];});
-            console.log(activeVals);
+
             d3.select("#legend-title").html(function(d){return "Collection date";});
             var label_fmt = function(d) {return d.toFixed(2).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/,/g, ', ');}
             colorScale = myTree.currentColorScale;
@@ -101,6 +180,7 @@ function load_tree(){
         myLegend = new legend(legendCanvas, colorScale, label_fmt,
                               legend_mouseover, legend_mouseout, legend_click,
                               legend_stack_height);
+
     }
 
     d3.json(file_prefix + "tree.json", function (error, root){
@@ -108,7 +188,7 @@ function load_tree(){
 
         document.getElementById("timetree").checked=false;
         myTree = new PhyloTree(root, treeplot, d3.select('.treeplot-container'));
-
+        addTipDecorations();
         d3.select("#reset").on("click", myTree.resetLayout);
         d3.select("#timetree").on("change", function(){
             var tmp_timetree = document.getElementById("timetree").checked;
@@ -163,6 +243,7 @@ function load_tree(){
                                legend_mouseover, legend_mouseout);
     });
 
+
     function stateAtPosition(clade, gene, pos){
         if (typeof cladeToSeq[clade][gene][pos] == "undefined"){
             return cladeToSeq["root"][gene][pos];
@@ -212,7 +293,7 @@ function load_tree(){
         var tmp_range = [], tmp_freqs = [];
         for (var ii=0; ii<tmp_categories.length; ii++)
             {tmp_range.push(genotypeColors[ii%genotypeColors.length]);
-             tmp_freqs.push(gene+'_'+(pos+1)+'_'+tmp_categories[ii]);}
+             tmp_freqs.push('global'+'_'+gene+':'+(pos+1)+tmp_categories[ii]);}
         colorScale = d3.scale.ordinal()
             .domain(tmp_categories)
             .range(tmp_range);
@@ -296,7 +377,7 @@ function load_tree(){
     d3.json(file_prefix+"frequencies.json", function(error, freqs){
         myFreqChart = new frequencyChart(d3.select('.frequency-container'), '#frequencies',
                                          freqs['pivots'],freqs);
-        myFreqChart.addTrajectories(['HA1_159_Y','HA1_159_F', 'HA1_159_S'], genotypeColors);
+        myFreqChart.addTrajectories(['global_HA1:159Y','global_HA1:159F', 'global_HA1:159S'], genotypeColors);
     });
 
 }
