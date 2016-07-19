@@ -38,6 +38,5 @@ function assignRawTiter(tips, focusNode){
         }else{
             d.HI_dist = 'NaN';
         }
-        console.log(d.HI_dist);
     }
 };

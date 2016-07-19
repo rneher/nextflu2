@@ -13,8 +13,8 @@ var legendCanvas = d3.select("#legend")
 
 var mutType='aa'; //mutations displayed in tooltip
 
-var serumSymbol = 'X'; //'\uf0fe';
-var focusSymbol = 'O'; //'\uf05b'
+var serumSymbol = '\uf0fe';
+var focusSymbol = '\uf05b'
 var focusNode;
 var decorations=true;
 
@@ -53,42 +53,6 @@ function load_tree(){
     var tw = 10.0;
     var colorScale;
 
-    function addTipDecorations(){
-        console.log('adding tip decorations');
-        treeplot.selectAll(".tipDeco")
-            .data(myTree.nodes.filter(function(d) {return d.serum;}))
-            .enter()
-            .append("text")
-            .style('font-family', 'FontAwesome')
-            .attr('text-anchor', 'middle')
-            .attr('dominant-baseline', 'central')
-            .attr("class","tipDeco")
-            .style("cursor", "pointer")
-            .text(tipDecoration)
-            .style("font-size", function (d) {if (d==focusNode) {return "30px";} else {return "12px";}})
-            .on('click', changeTiterFocus)
-            .on('mouseover', function(d) {
-                virusTooltip.show(d, this);
-            })
-            .on('mouseout', virusTooltip.hide);
-        myTree.updateGeometry();
-    }
-
-    function updateTipDecoration(){
-        console.log('updating tip decorations');
-        treeplot.selectAll(".tipDeco")
-            .text(tipDecoration)
-            .style("font-size", function (d) {console.log(d.serum); if (d==focusNode) {return "30px";} else {return "12px";}});
-    }
-
-    function changeTiterFocus(d) {
-        focusNode=d;
-        updateTipDecoration();
-        assignRawTiter(myTree.tips, focusNode);
-        colorByTiter();
-    }
-
-
     function legend_mouseover(legend_element){
         var lb = myLegend.lowerBound[legend_element];
         var ub = myLegend.upperBound[legend_element];
@@ -117,6 +81,44 @@ function load_tree(){
         console.log("Click, updated style " + legend_element +" "+ lb+" "+ub);
     }
 
+/********************************************************************************************
+TITER STUFF
+*********************************************************************************************/
+    function addTipDecorations(){
+        console.log('adding tip decorations');
+        treeplot.selectAll(".tipDeco")
+            .data(myTree.nodes.filter(function(d) {return d.serum;}))
+            .enter()
+            .append("text")
+            .style('font-family', 'FontAwesome')
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'central')
+            .attr("class","tipDeco")
+            .style("cursor", "pointer")
+            .text(tipDecoration)
+            .style("font-size", function (d) {if (d==focusNode) {return "30px";} else {return "12px";}})
+            .on('click', changeTiterFocus)
+            .on('mouseover', function(d) {
+                virusTooltip.show(d, this);
+            })
+            .on('mouseout', virusTooltip.hide);
+        myTree.updateGeometry();
+    }
+
+    function updateTipDecoration(){
+        console.log('updating tip decorations');
+        treeplot.selectAll(".tipDeco")
+            .text(tipDecoration)
+            .style("font-size", function (d) {if (d==focusNode) {return "30px";} else {return "12px";}});
+    }
+
+    function changeTiterFocus(d) {
+        focusNode=d;
+        updateTipDecoration();
+        assignRawTiter(myTree.tips, focusNode);
+        colorByTiter();
+    }
+
     function colorByTiter(){
         myTree.nodes.forEach(function (d){d.coloring = d.HI_dist; d._valid=(d.HI_dist!='NaN');});
         var activeTips = myTree.tips.filter(function (d){return d.current;});
@@ -127,7 +129,7 @@ function load_tree(){
         var curr_max = d3.max(activeVals);
         colorScale.domain(myTree.zero_one.map(function (d){return curr_min + d*(curr_max-curr_min);}));
 
-        myTree.updateStyle(colorScale, branchColor="same");
+        myTree.updateStyle(colorScale, branchColor="#DDD");
         if (typeof myLegend != "undefined"){
             myLegend.remove();
         }
@@ -140,7 +142,12 @@ function load_tree(){
     }
 
 
+/********************************************************************************************
+GENERIC COLORING
+*********************************************************************************************/
     function updateColor(){
+        focusNode='undefined';
+        updateTipDecoration();
         var choice = document.getElementById("coloring").value;
         console.log("coloring by", choice);
         myTree.nodes.forEach(function (d){d._valid=true;});
