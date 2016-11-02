@@ -22,9 +22,9 @@ function tipDecoration(d) {
     if (typeof(d.serum) === 'undefined'){
         return '';
     }else if (d.serum){
-        if (d==focusNode) 
-            {return focusSymbol;} 
-        else 
+        if (d==focusNode)
+            {return focusSymbol;}
+        else
             {return serumSymbol;}
     }else{
         return '';
@@ -151,14 +151,13 @@ GENERIC COLORING
         var choice = document.getElementById("coloring").value;
         console.log("coloring by", choice);
         myTree.nodes.forEach(function (d){d._valid=true;});
-        if (choice=="date"||choice=="ep"||choice=="ne"||choice=="rb"||choice=="cTiter"||choice=="LBI"){
+        if (choice=="num_date"||choice=="ep"||choice=="ne"||choice=="rb"||choice=="cTiter"||choice=="LBI"){
             if (choice=="LBI")
                 {calcLBI(myTree.rootNode, myTree.nodes);}
-            
-            if (choice=="date") {myTree.nodes.forEach(function (d){d.coloring = d._numDate;});}
-            else {myTree.nodes.forEach(function (d){d.coloring = d[choice];});}
+
+            myTree.nodes.forEach(function (d){d.coloring = d.attr[choice];});
             var activeTips = myTree.tips.filter(function (d){return d.current;});
-            var activeVals = activeTips.map(function(d){return (choice=="date")?d._numDate:d[choice];});
+            var activeVals = activeTips.map(function(d){return d.attr[choice];});
 
             d3.select("#legend-title").html(function(d){return "Collection date";});
             var label_fmt = function(d) {return d.toFixed(2).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/,/g, ', ');}
@@ -167,9 +166,9 @@ GENERIC COLORING
             var curr_max = d3.max(activeVals);
             colorScale.domain(myTree.zero_one.map(function (d){return curr_min + d*(curr_max-curr_min);}));
         }else{
-            myTree.nodes.forEach(function (d){d.coloring = d[choice];});
+            myTree.nodes.forEach(function (d){d.coloring = d.attr[choice];});
             var cats = [];
-            myTree.nodes.forEach(function (d){cats.push(d[choice]);});
+            myTree.nodes.forEach(function (d){cats.push(d.attr[choice]);});
             var tmp_categories = d3.set(cats).values();
             d3.select("#legend-title").html(function(d){return (choice=="region")?"Region":"Country";});
             var label_fmt = function(d) {return d;}

@@ -23,17 +23,17 @@ function assignRawTiter(tips, focusNode){
     var tmp_titers = raw_titers[focusNode.clade];
     for (var i=0; i<tips.length; i+=1){
         d = tips[i];
-        if (typeof(tmp_titers[d.clade])!="undefined"){
+        if (typeof tmp_titers[d.clade] !== "undefined"){
             var tmp_HI=0;
             var serum_count=0;
             for (var tmp_serum in tmp_titers[d.clade]){
-                tmp_HI += tmp_titers[d.clade][tmp_serum];
+                tmp_HI += tmp_titers[d.clade][tmp_serum][0];
                 serum_count+=1;
             }
             if (serum_count){
                 d.HI_dist = tmp_HI/serum_count
             }else{
-                d.HI_dist = 'NaN';             
+                d.HI_dist = 'NaN';
             }
         }else{
             d.HI_dist = 'NaN';
